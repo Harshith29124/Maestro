@@ -27,22 +27,42 @@ def test_sanitize_rejects_overlength():
 
 def test_rate_limiter_minute_window():
     rl = SlidingWindowRateLimiter(per_minute=2, per_day=100)
-    assert rl.check("c1")[0] is True
-    assert rl.check("c1")[0] is True
-    allowed, retry, scope = rl.check("c1")
+    assert rl.check_sync("c1")[0] is True
+    assert rl.check_sync("c1")[0] is True
+    allowed, retry, scope = rl.check_sync("c1")
     assert allowed is False
     assert scope == "minute"
     assert retry >= 1
     # Different client has its own bucket.
-    assert rl.check("c2")[0] is True
+    assert rl.check_sync("c2")[0] is True
 
 
 def test_rate_limiter_day_window():
     rl = SlidingWindowRateLimiter(per_minute=1000, per_day=1)
-    assert rl.check("c1")[0] is True
-    allowed, _, scope = rl.check("c1")
+    assert rl.check_sync("c1")[0] is True
+    allowed, _, scope = rl.check_sync("c1")
     assert allowed is False
     assert scope == "day"
+
+
+@pytest.mark.asyncio
+async def test_rate_limiter_async_api():
+    rl = SlidingWindowRateLimiter(per_minute=1, per_day=100)
+    assert (await rl.check("c1"))[0] is True
+    assert (await rl.check("c1"))[0] is False
+
+
+def test_build_rate_limiter_selects_backend(monkeypatch):
+    from api.security import build_rate_limiter
+    from maestro.config import SecuritySettings
+
+    monkeypatch.delenv("UPSTASH_REDIS_REST_URL", raising=False)
+    monkeypatch.delenv("UPSTASH_REDIS_REST_TOKEN", raising=False)
+    assert build_rate_limiter(SecuritySettings()).backend == "memory"
+
+    monkeypatch.setenv("UPSTASH_REDIS_REST_URL", "https://example.upstash.io")
+    monkeypatch.setenv("UPSTASH_REDIS_REST_TOKEN", "tok")
+    assert build_rate_limiter(SecuritySettings()).backend == "upstash-redis"
 
 
 def test_production_security_flags(monkeypatch):
