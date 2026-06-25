@@ -125,7 +125,43 @@ class ResilientCaller:
         chain = self._config.models_for_role(role)
         if not chain:
             raise ValueError(f"No models configured for role '{role}'")
+        return await self._call_chain(
+            chain, role, system=system, user=user,
+            temperature=temperature, max_tokens=max_tokens,
+        )
 
+    async def call_models(
+        self,
+        model_names: list[str],
+        *,
+        system: str,
+        user: str,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> CallOutcome:
+        """Call a specific ordered list of models (by name), first available wins.
+
+        Used by Consensus mode to pin each proposer to a distinct model family.
+        Unknown names are skipped; remaining models act as the fallback chain.
+        """
+        chain = [self._config.models[n] for n in model_names if n in self._config.models]
+        if not chain:
+            raise ValueError(f"No known models in {model_names}")
+        return await self._call_chain(
+            chain, "/".join(model_names), system=system, user=user,
+            temperature=temperature, max_tokens=max_tokens,
+        )
+
+    async def _call_chain(
+        self,
+        chain: list[ModelSpec],
+        label: str,
+        *,
+        system: str,
+        user: str,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> CallOutcome:
         temperature = (
             temperature if temperature is not None else self._config.default_temperature
         )
@@ -171,7 +207,7 @@ class ResilientCaller:
                     break  # don't retry hard errors; try next model
 
         raise RuntimeError(
-            f"All models for role '{role}' failed. Last error: {last_err}"
+            f"All models for '{label}' failed. Last error: {last_err}"
         )
 
     @staticmethod

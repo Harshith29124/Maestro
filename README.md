@@ -26,8 +26,8 @@ rebuilt here open and transparent so anyone can run it.
 ```mermaid
 flowchart LR
     T[Task] --> C{Conductor<br/>Gemini 3 Flash}
-    C -->|plan + routing_rationale| TH[Thinker<br/>gpt-oss-120b]
-    TH -->|strategy| W[Worker<br/>gpt-oss-20b]
+    C -->|plan + routing_rationale| TH[Thinker<br/>qwen3.6-27b]
+    TH -->|strategy| W[Worker<br/>llama-3.3-70b]
     W -->|answer| V{Verifier<br/>gpt-oss-120b}
     V -->|pass| S[Synthesizer<br/>Gemini 3 Flash]
     V -->|fail: 1 bounded retry| W
@@ -106,8 +106,10 @@ handles this in `maestro/ratelimit.py`:
 - **Per-model token-bucket** enforcing both RPM *and* TPM over a rolling 60s window, reserving
   estimated tokens *before* a call so we defer rather than 429.
 - **Exponential backoff with jitter** on HTTP 429, honoring the provider's `Retry-After`.
-- **Model fallback chains** per role (e.g. Worker: `gpt-oss-20b → qwen3.6-27b → llama-3.3-70b`),
-  configured in `config.yaml`. Long-context steps route to Gemini (~1M TPM) to spare Groq's budget.
+- **Model fallback chains** per role, diversified across families (Thinker `qwen3.6-27b →
+  gpt-oss-120b`; Worker `llama-3.3-70b → qwen3.6-27b → gpt-oss-20b`; Verifier kept a *different*
+  family than the Worker). Configured in `config.yaml`; long-context steps route to Gemini
+  (~1M TPM) to spare Groq's tight budget. Worker auto-falls to qwen after llama's Aug 16 2026 shutdown.
 - **Continue-on-fail:** one failed model call never crashes a run — it's logged and the
   orchestrator proceeds with partial results.
 

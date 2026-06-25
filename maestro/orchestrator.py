@@ -118,10 +118,18 @@ class Orchestrator:
         self, run: RunRecord, task: str, on_step: Optional[StepHook]
     ) -> None:
         n = self._config.consensus_proposers
+        # Draw distinct model families for real MoA diversity (Self-MoA shows mixing
+        # *weak* models hurts, so the pool is curated, not random). Falls back to the
+        # worker chain if no consensus_pool is configured.
+        pool = self._config.roles.get("consensus_pool") or self._config.roles.get("worker", [])
         # Capped parallelism to protect TPM; proposers run concurrently but the
         # limiter still serializes within each model's RPM/TPM budget.
         proposals = await asyncio.gather(
-            *(self._proposer(task, i) for i in range(n)), return_exceptions=True
+            *(
+                self._proposer(task, i, pool[i % len(pool)] if pool else None)
+                for i in range(n)
+            ),
+            return_exceptions=True,
         )
         candidate_texts: list[str] = []
         for i, prop in enumerate(proposals):
@@ -169,15 +177,23 @@ class Orchestrator:
         run.final_answer = agg.output
         run.verification_status = "unverified"
 
-    async def _proposer(self, task: str, idx: int) -> Step:
-        outcome = await self._caller.call_role(
-            "worker", system=CONSENSUS_PROPOSER, user=task
-        )
+    async def _proposer(self, task: str, idx: int, model_name: str | None) -> Step:
+        if model_name:
+            # Pin this proposer to a specific family; the rest of the pool is its fallback.
+            pool = self._config.roles.get("consensus_pool") or self._config.roles.get("worker", [])
+            chain = [model_name] + [m for m in pool if m != model_name]
+            outcome = await self._caller.call_models(
+                chain, system=CONSENSUS_PROPOSER, user=task
+            )
+        else:
+            outcome = await self._caller.call_role(
+                "worker", system=CONSENSUS_PROPOSER, user=task
+            )
         return Step(
             step=f"propose_{idx}",
             role="proposer",
             model=outcome.model_used,
-            routing_rationale="Independent proposer for consensus.",
+            routing_rationale=f"Independent proposer ({model_name or 'worker chain'}) for consensus.",
             output=outcome.result.text,
             tokens=TokenUsage(
                 **{"in": outcome.result.tokens_in, "out": outcome.result.tokens_out}
