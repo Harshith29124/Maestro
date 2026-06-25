@@ -7,12 +7,31 @@ PRD's export schema and optionally persists runs to disk for later replay.
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
 from .schemas import RunRecord
 
-_RUNS_DIR = Path(__file__).resolve().parent.parent / "runs"
+
+def _default_runs_dir() -> Path:
+    """Pick a writable runs directory.
+
+    On serverless hosts (Vercel) the repo filesystem is read-only, so honor
+    MAESTRO_RUNS_DIR, then fall back to a temp dir, then the repo. Persistence is
+    best-effort and the full decision-log is always returned inline in the API
+    response, so a read-only/ephemeral FS never breaks a run.
+    """
+    env = os.getenv("MAESTRO_RUNS_DIR")
+    if env:
+        return Path(env)
+    if os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"):
+        return Path(tempfile.gettempdir()) / "maestro_runs"
+    return Path(__file__).resolve().parent.parent / "runs"
+
+
+_RUNS_DIR = _default_runs_dir()
 
 
 def to_export_dict(run: RunRecord) -> dict[str, Any]:

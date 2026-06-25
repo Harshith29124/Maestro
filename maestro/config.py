@@ -15,6 +15,15 @@ import yaml
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
+# Load a local .env for development. No-op if python-dotenv is absent or the file
+# is missing (e.g. on Vercel/Railway, where env vars come from the platform).
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(_REPO_ROOT / ".env")
+except Exception:  # noqa: BLE001
+    pass
+
 
 def _bool_env(name: str, default: bool) -> bool:
     raw = os.getenv(name)

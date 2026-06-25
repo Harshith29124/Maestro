@@ -125,8 +125,9 @@ security layer (`api/security.py`) provides:
 
 - **API-key auth** (`X-API-Key` / `Authorization: Bearer`), constant-time compared. Set
   `MAESTRO_API_KEYS` to enable.
-- **Per-client sliding-window rate limiting** (per-minute + per-day), separate from the
-  provider-side throttle.
+- **Per-client rate limiting** (per-minute + per-day), separate from the provider-side throttle.
+  In-memory by default; **set Upstash Redis env vars and it becomes globally consistent across
+  all serverless instances** (see below) — the right answer for Vercel.
 - **Security headers** on every response: CSP, `X-Frame-Options: DENY`, `X-Content-Type-Options`,
   `Referrer-Policy`, HSTS (in production).
 - **Input hardening**: prompt length caps, control-character stripping, null-byte rejection,
@@ -135,24 +136,49 @@ security layer (`api/security.py`) provides:
 - **Startup self-audit**: in `MAESTRO_ENV=production`, Maestro logs warnings for unauthenticated
   APIs, wildcard CORS, mock mode left on, or a missing secret key.
 
-### Deploy on Railway (recommended — supports live WebSocket streaming)
+### Deploy on Vercel (primary path)
+
+`vercel.json` + `api/index.py` serve the ASGI app via `@vercel/python` (Python 3.11,
+`maxDuration` 60s so multi-call orchestration isn't cut off).
 
 ```bash
-# Railway auto-detects the Dockerfile / railway.json. Set env vars in the dashboard:
+npm i -g vercel
+vercel            # link the project
+vercel --prod     # deploy
+```
+
+Set these in the Vercel project **Environment Variables**:
+
+```
 MAESTRO_ENV=production
-MAESTRO_API_KEYS=<generate-strong-keys>
-MAESTRO_CORS_ORIGINS=https://your-domain
+MAESTRO_API_KEYS=<generate strong keys>      # REQUIRED — keeps the API non-public
+MAESTRO_CORS_ORIGINS=https://your-app.vercel.app
 MAESTRO_ALLOW_MOCK=false
 GROQ_API_KEY=...
 GOOGLE_API_KEY=...
+# Globally-consistent rate limiting across serverless instances (free Upstash tier):
+UPSTASH_REDIS_REST_URL=...
+UPSTASH_REDIS_REST_TOKEN=...
 ```
 
-### Deploy on Vercel
+**Two serverless facts Maestro handles for you:**
+- **No WebSockets** on Vercel serverless — the dashboard auto-detects this and falls back to
+  the REST `/orchestrate` endpoint (the timeline renders all at once instead of streaming live).
+- **Read-only filesystem** — run persistence auto-routes to a writable temp dir, and the full
+  decision-log is always returned inline in the response, so `runs/` being read-only never
+  breaks a run. `GET /runs/{id}` is best-effort on serverless (ephemeral per instance).
 
-`vercel.json` + `api/index.py` serve the ASGI app via `@vercel/python`. **Caveat:** Vercel
-serverless doesn't support WebSockets (the dashboard auto-falls back to REST), and the
-in-process rate limiter is per-instance — put Vercel's edge limiter or Upstash/Redis in front
-for hard guarantees. Use Railway for the full live-streaming demo.
+> **Why Upstash?** Without it, the rate limiter counts per-instance, and Vercel runs many
+> instances — so a burst spread across instances can slip past your limit and burn your free
+> provider quota. With Upstash set, counts are shared and the limit is enforced for real.
+> `GET /health` reports `"rate_limit_backend": "upstash-redis"` once it's wired. The in-memory
+> limiter stays on as a per-instance backstop in case Redis is briefly unreachable.
+
+### Deploy on Railway (alternative — supports live WebSocket streaming)
+
+Railway auto-detects the `Dockerfile` / `railway.json`. It's a single long-lived container, so
+the in-memory limiter is globally accurate (no Upstash needed) and live WS streaming works. Set
+the same env vars (minus Upstash). Note Railway's free trial is time-limited.
 
 > See `.env.example` for every setting. **Before any public deploy:** set `MAESTRO_API_KEYS`,
 > set explicit `MAESTRO_CORS_ORIGINS`, and `MAESTRO_ALLOW_MOCK=false`.
@@ -203,7 +229,8 @@ n8n workflow; both emit the **identical decision-log schema** so the dashboard w
 ## Tests
 
 ```bash
-pytest -q     # 19 tests, fully offline via the mock provider
+pip install -r requirements-dev.txt   # test tooling (pytest, respx)
+pytest -q                             # 21 tests, fully offline via the mock provider
 ```
 
 ---

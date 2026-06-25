@@ -32,6 +32,7 @@ from .security import (
     BodySizeLimitMiddleware,
     SecurityHeadersMiddleware,
     SlidingWindowRateLimiter,
+    build_rate_limiter,
     require_api_key,
     validate_production_security,
 )
@@ -40,20 +41,29 @@ logger = logging.getLogger("maestro.api")
 _DASHBOARD_DIR = Path(__file__).resolve().parent.parent / "dashboard"
 
 _orchestrator: Orchestrator | None = None
-_rate_limiter: SlidingWindowRateLimiter | None = None
+_rate_limiter = None  # primary (Upstash if configured, else in-memory)
+_rate_backstop: SlidingWindowRateLimiter | None = None  # per-instance, used with Upstash
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _orchestrator, _rate_limiter
+    global _orchestrator, _rate_limiter, _rate_backstop
     sec = get_security()
     for problem in validate_production_security(sec):
         logger.warning("SECURITY: %s", problem)
     _orchestrator = Orchestrator(get_config())
-    _rate_limiter = SlidingWindowRateLimiter(
-        per_minute=sec.rate_limit_per_minute, per_day=sec.rate_limit_per_day
+    _rate_limiter = build_rate_limiter(sec)
+    # When the primary is a shared Redis limiter (fail-open), keep a per-instance
+    # memory limiter as a backstop so a Redis outage can't fully open the API.
+    _rate_backstop = (
+        SlidingWindowRateLimiter(sec.rate_limit_per_minute, sec.rate_limit_per_day)
+        if _rate_limiter.backend != "memory"
+        else None
     )
-    logger.info("Maestro %s ready (auth=%s, mock=%s)", __version__, sec.auth_enabled, sec.allow_mock)
+    logger.info(
+        "Maestro %s ready (auth=%s, mock=%s, ratelimit=%s)",
+        __version__, sec.auth_enabled, sec.allow_mock, _rate_limiter.backend,
+    )
     yield
     if _orchestrator:
         await _orchestrator.aclose()
@@ -75,9 +85,17 @@ app.add_middleware(
 )
 
 
-def _check_rate_limit(client_id: str) -> None:
+async def _enforce_rate_limit(client_id: str) -> tuple[bool, int, str]:
+    """Check primary (+ memory backstop). Returns (allowed, retry_after, scope)."""
     assert _rate_limiter is not None
-    allowed, retry_after, scope = _rate_limiter.check(client_id)
+    allowed, retry_after, scope = await _rate_limiter.check(client_id)
+    if allowed and _rate_backstop is not None:
+        allowed, retry_after, scope = _rate_backstop.check_sync(client_id)
+    return allowed, retry_after, scope
+
+
+async def _check_rate_limit(client_id: str) -> None:
+    allowed, retry_after, scope = await _enforce_rate_limit(client_id)
     if not allowed:
         raise HTTPException(
             status_code=429,
@@ -97,6 +115,7 @@ async def health() -> dict:
         "auth_enabled": sec.auth_enabled,
         "mock_mode": sec.allow_mock,
         "environment": sec.env,
+        "rate_limit_backend": _rate_limiter.backend if _rate_limiter else "unknown",
         "models": list(cfg.models.keys()),
     }
 
@@ -112,7 +131,7 @@ async def orchestrate(
     payload: OrchestrateRequest,
     client_id: str = Depends(require_api_key),
 ) -> OrchestrateResponse:
-    _check_rate_limit(client_id)
+    await _check_rate_limit(client_id)
     sec = get_security()
     try:
         task = sanitize_task(payload.task, sec.max_prompt_chars)
@@ -167,8 +186,7 @@ async def ws_orchestrate(ws: WebSocket) -> None:
         client_id = f"ws:{ws.client.host if ws.client else 'unknown'}"
 
     # Rate limit WS runs too.
-    assert _rate_limiter is not None
-    allowed, retry_after, scope = _rate_limiter.check(client_id)
+    allowed, retry_after, scope = await _enforce_rate_limit(client_id)
     if not allowed:
         await ws.send_json({"type": "error", "detail": f"Rate limit ({scope}). Retry in {retry_after}s."})
         await ws.close(code=1013)

@@ -4,19 +4,22 @@ Designed for a public free-tier deployment (Vercel / Railway), where the threats
 abusive callers burning the provider quota, missing auth, permissive CORS, and clickjacking.
 
 NOTE on serverless: the in-memory rate limiter is per-process. On a single Railway
-container it is globally accurate. On Vercel's serverless functions (multiple short-lived
-instances) it is per-instance and best-effort — set MAESTRO_RATE_LIMIT_* conservatively
-and put a platform/edge limiter or Redis in front for hard guarantees. This is documented
-in the README's deployment section.
+container it is globally accurate. On Vercel's serverless functions (many short-lived
+instances) it is per-instance and best-effort. For a *globally* correct limit on Vercel,
+set UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN (free tier) and Maestro automatically
+uses a Redis-backed limiter shared across all instances. `build_rate_limiter()` picks the
+backend; both expose the same async `check()` API.
 """
 
 from __future__ import annotations
 
 import hmac
+import os
 import time
 from collections import defaultdict, deque
 from dataclasses import dataclass
 
+import httpx
 from fastapi import Header, HTTPException, Request, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
@@ -100,7 +103,7 @@ class SlidingWindowRateLimiter:
             lambda: _Buckets(deque(), deque())
         )
 
-    def check(self, client_id: str) -> tuple[bool, int, str]:
+    def check_sync(self, client_id: str) -> tuple[bool, int, str]:
         """Returns (allowed, retry_after_seconds, scope)."""
         now = time.time()
         b = self._clients[client_id]
@@ -119,10 +122,78 @@ class SlidingWindowRateLimiter:
         b.day.append(now)
         return True, 0, ""
 
+    async def check(self, client_id: str) -> tuple[bool, int, str]:
+        return self.check_sync(client_id)
+
+    @property
+    def backend(self) -> str:
+        return "memory"
+
 
 def _evict(dq: deque[float], cutoff: float) -> None:
     while dq and dq[0] < cutoff:
         dq.popleft()
+
+
+class UpstashRateLimiter:
+    """Globally-consistent limiter backed by Upstash Redis (REST API).
+
+    Uses fixed minute/day windows via atomic INCR + EXPIRE, pipelined into a single
+    HTTPS round trip — no persistent connection, ideal for Vercel serverless. Counts are
+    shared across every function instance, so the limit is enforced for real.
+
+    Fails OPEN on a backend error (a Redis outage should not take the API down); the
+    per-instance memory limiter still applies as a backstop in main.py.
+    """
+
+    def __init__(self, per_minute: int, per_day: int, url: str, token: str):
+        self.per_minute = per_minute
+        self.per_day = per_day
+        self._url = url.rstrip("/")
+        self._client = httpx.AsyncClient(
+            headers={"Authorization": f"Bearer {token}"}, timeout=5.0
+        )
+
+    async def check(self, client_id: str) -> tuple[bool, int, str]:
+        now = int(time.time())
+        minute_key = f"rl:{client_id}:m:{now // 60}"
+        day_key = f"rl:{client_id}:d:{now // 86400}"
+        # Pipeline: INCR both keys, then set TTLs (idempotent; cheap).
+        commands = [
+            ["INCR", minute_key],
+            ["EXPIRE", minute_key, "60"],
+            ["INCR", day_key],
+            ["EXPIRE", day_key, "86400"],
+        ]
+        try:
+            resp = await self._client.post(f"{self._url}/pipeline", json=commands)
+            resp.raise_for_status()
+            results = resp.json()
+            minute_count = int(results[0]["result"])
+            day_count = int(results[2]["result"])
+        except Exception:  # noqa: BLE001 - fail open; memory backstop still applies
+            return True, 0, ""
+
+        if minute_count > self.per_minute:
+            return False, 60 - (now % 60), "minute"
+        if day_count > self.per_day:
+            return False, 86400 - (now % 86400), "day"
+        return True, 0, ""
+
+    @property
+    def backend(self) -> str:
+        return "upstash-redis"
+
+
+def build_rate_limiter(sec: SecuritySettings):
+    """Return a Redis-backed limiter if Upstash env vars are set, else in-memory."""
+    url = os.getenv("UPSTASH_REDIS_REST_URL")
+    token = os.getenv("UPSTASH_REDIS_REST_TOKEN")
+    if url and token:
+        return UpstashRateLimiter(
+            sec.rate_limit_per_minute, sec.rate_limit_per_day, url, token
+        )
+    return SlidingWindowRateLimiter(sec.rate_limit_per_minute, sec.rate_limit_per_day)
 
 
 # ----------------------------------------------------------------- middlewares
