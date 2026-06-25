@@ -1,0 +1,8 @@
+{"id": "reason-01", "type": "reasoning", "task": "A bat and a ball cost $1.10 together. The bat costs $1.00 more than the ball. How much is the ball?"}
+{"id": "reason-02", "type": "reasoning", "task": "If all Bloops are Razzies and all Razzies are Lazzies, are all Bloops definitely Lazzies? Explain."}
+{"id": "reason-03", "type": "reasoning", "task": "A farmer has 17 sheep. All but 9 run away. How many are left?"}
+{"id": "code-01", "type": "coding", "task": "Write a Python function that returns the n-th Fibonacci number iteratively in O(n) time and O(1) space."}
+{"id": "code-02", "type": "coding", "task": "Write a Python function to check whether a string is a valid palindrome, ignoring case and non-alphanumeric characters."}
+{"id": "code-03", "type": "coding", "task": "Implement an LRU cache class in Python with get and put in O(1) average time."}
+{"id": "writing-01", "type": "writing", "task": "Write a 3-sentence product description for a reusable stainless-steel water bottle aimed at hikers."}
+{"id": "analysis-01", "type": "analysis", "task": "List three trade-offs of using microservices instead of a monolith, with one sentence each."}

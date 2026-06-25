@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Maestro — transparent orchestration of free models</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="masthead">
+    <div class="masthead-inner">
+      <h1 class="wordmark">MAESTRO</h1>
+      <p class="tagline">Frontier-quality answers from free models, through transparent orchestration.</p>
+    </div>
+  </header>
+
+  <main class="grid">
+    <!-- LEFT: input -->
+    <section class="col col-input" aria-label="Task input">
+      <h2 class="kicker">Task</h2>
+      <textarea id="task" class="task-input" rows="6"
+        placeholder="Paste a task. Maestro routes it across free LLMs and shows its work."></textarea>
+
+      <fieldset class="modes">
+        <legend class="kicker">Mode</legend>
+        <label><input type="radio" name="mode" value="conductor" checked /> Conductor <span class="muted">(default)</span></label>
+        <label><input type="radio" name="mode" value="consensus" /> Consensus <span class="muted">(MoA-lite)</span></label>
+        <label><input type="radio" name="mode" value="single" /> Single <span class="muted">(baseline)</span></label>
+      </fieldset>
+
+      <div class="auth-row">
+        <label class="kicker" for="apikey">API key <span class="muted">(if required)</span></label>
+        <input id="apikey" class="apikey-input" type="password" placeholder="optional" autocomplete="off" />
+      </div>
+
+      <div class="actions">
+        <button id="run" class="btn btn-primary">Run orchestration</button>
+        <button id="sample" class="btn btn-ghost">Run sample task</button>
+      </div>
+      <p id="status" class="status" role="status"></p>
+    </section>
+
+    <!-- CENTER: timeline -->
+    <section class="col col-timeline" aria-label="Orchestration timeline">
+      <h2 class="kicker">Orchestration timeline</h2>
+      <ol id="timeline" class="timeline"></ol>
+    </section>
+
+    <!-- RIGHT: final answer -->
+    <section class="col col-answer" aria-label="Final answer">
+      <div class="answer-head">
+        <h2 class="kicker">Final answer</h2>
+        <span id="verdict" class="verdict" hidden></span>
+      </div>
+      <article id="answer" class="answer muted">The synthesized answer appears here.</article>
+
+      <div class="log-bar">
+        <span id="totals" class="totals muted"></span>
+        <button id="export" class="btn btn-ghost" disabled>Export decision-log JSON</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>Glass-box rebuild of the Fugu / TRINITY concept.</span>
+    <span class="muted">Conductor is prompt/rule-based — not a trained coordinator. Disclosed honestly.</span>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
