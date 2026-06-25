@@ -1,0 +1,17 @@
+# Core
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+httpx==0.28.1
+pydantic==2.10.4
+pydantic-settings==2.7.1
+PyYAML==6.0.2
+python-dotenv==1.0.1
+
+# Security / rate limiting
+slowapi==0.1.9
+itsdangerous==2.2.0
+
+# Dev / test
+pytest==8.3.4
+pytest-asyncio==0.25.0
+respx==0.22.0

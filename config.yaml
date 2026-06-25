@@ -1,0 +1,72 @@
+# Maestro model pool, role assignments, rate limits, and thresholds.
+# Swapping models = editing this file only. Orchestration code never hard-codes a model ID.
+#
+# Catalog is in heavy flux (June 2026). The durable free working set is pinned here;
+# deprecated models are kept as late-stage fallbacks with shutdown dates noted.
+
+providers:
+  groq:
+    base_url: "https://api.groq.com/openai/v1"
+    api_key_env: "GROQ_API_KEY"
+    timeout_s: 60
+  gemini:
+    base_url: "https://generativelanguage.googleapis.com/v1beta"
+    api_key_env: "GOOGLE_API_KEY"
+    timeout_s: 90
+
+# Per-model rate limits enforced locally BEFORE we ever hit the provider.
+# TPM (tokens/min) is the real binding constraint on Groq's free tier, not RPM.
+models:
+  gemini-3-flash:
+    provider: gemini
+    api_id: "gemini-3-flash"
+    rpm: 12          # AI Studio free tier is RPM-tight
+    tpm: 1000000     # ...but very generous on tokens
+    rpd: 1500
+  openai/gpt-oss-120b:
+    provider: groq
+    api_id: "openai/gpt-oss-120b"
+    rpm: 30
+    tpm: 8000        # tight — route long context to Gemini
+    rpd: 1000
+  openai/gpt-oss-20b:
+    provider: groq
+    api_id: "openai/gpt-oss-20b"
+    rpm: 30
+    tpm: 8000
+    rpd: 1000
+  qwen/qwen3.6-27b:
+    provider: groq
+    api_id: "qwen/qwen3.6-27b"
+    rpm: 30
+    tpm: 8000
+    rpd: 1000
+  # Deprecated Aug 16, 2026 — kept only as a last-resort worker fallback.
+  llama-3.3-70b-versatile:
+    provider: groq
+    api_id: "llama-3.3-70b-versatile"
+    rpm: 30
+    tpm: 12000
+    rpd: 1000
+
+# Role -> ordered model preference. First available (not rate-limited) wins.
+roles:
+  conductor:   ["gemini-3-flash", "openai/gpt-oss-120b"]
+  thinker:     ["openai/gpt-oss-120b", "qwen/qwen3.6-27b"]
+  worker:      ["openai/gpt-oss-20b", "qwen/qwen3.6-27b", "llama-3.3-70b-versatile"]
+  verifier:    ["openai/gpt-oss-120b", "gemini-3-flash"]   # different family from worker
+  synthesizer: ["gemini-3-flash", "openai/gpt-oss-120b"]
+
+orchestration:
+  max_retries: 1            # bounded refine loop on verifier "fail"
+  max_rounds: 3
+  per_call_timeout_s: 60
+  # Consensus (MoA-lite) mode: capped parallelism to protect TPM.
+  consensus_proposers: 2
+  # Self-consistency samples for reasoning tasks (gated by TPM).
+  self_consistency_n: 3
+
+defaults:
+  mode: "conductor"         # conductor | consensus | single
+  temperature: 0.3
+  max_tokens: 1024

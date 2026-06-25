@@ -1,0 +1,150 @@
+{
+  "name": "Maestro — Conductor Orchestration",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "maestro",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Webhook (task + mode)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 400]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "1", "name": "task", "value": "={{ $json.body.task }}", "type": "string" },
+            { "id": "2", "name": "groqUrl", "value": "https://api.groq.com/openai/v1/chat/completions", "type": "string" },
+            { "id": "3", "name": "thinkerModel", "value": "openai/gpt-oss-120b", "type": "string" },
+            { "id": "4", "name": "workerModel", "value": "openai/gpt-oss-20b", "type": "string" },
+            { "id": "5", "name": "verifierModel", "value": "openai/gpt-oss-120b", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "config",
+      "name": "Config (models + limits)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [ { "name": "x-goog-api-key", "value": "={{ $env.GOOGLE_API_KEY }}" } ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"system_instruction\": {\"parts\": [{\"text\": \"You are the CONDUCTOR. Emit a JSON plan only with task_type, difficulty, subtasks, direct_answer_possible, routing_rationale.\"}]},\n  \"contents\": [{\"role\": \"user\", \"parts\": [{\"text\": $json.task}]}]\n}",
+        "options": { "timeout": 60000 }
+      },
+      "id": "conductor",
+      "name": "Conductor (Gemini)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 400],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config (models + limits)').item.json.groqUrl }}",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [ { "name": "Authorization", "value": "=Bearer {{ $env.GROQ_API_KEY }}" } ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": $('Config (models + limits)').item.json.thinkerModel,\n  \"messages\": [\n    {\"role\": \"system\", \"content\": \"You are the THINKER. Produce a concise strategy/outline.\"},\n    {\"role\": \"user\", \"content\": $('Config (models + limits)').item.json.task}\n  ],\n  \"temperature\": 0.3, \"max_tokens\": 800\n}",
+        "options": { "timeout": 60000 }
+      },
+      "id": "thinker",
+      "name": "Thinker (Groq 120b)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 400],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": { "amount": 2 },
+      "id": "wait1",
+      "name": "Wait (RPM guard)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1120, 400],
+      "webhookId": "maestro-wait-1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config (models + limits)').item.json.groqUrl }}",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [ { "name": "Authorization", "value": "=Bearer {{ $env.GROQ_API_KEY }}" } ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": $('Config (models + limits)').item.json.workerModel,\n  \"messages\": [\n    {\"role\": \"system\", \"content\": \"You are the WORKER. Using the strategy, produce the answer.\"},\n    {\"role\": \"user\", \"content\": \"TASK: \" + $('Config (models + limits)').item.json.task + \"\\nSTRATEGY: \" + $json.choices[0].message.content}\n  ],\n  \"temperature\": 0.3, \"max_tokens\": 1024\n}",
+        "options": { "timeout": 60000 }
+      },
+      "id": "worker",
+      "name": "Worker (Groq 20b)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 400],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": { "amount": 2 },
+      "id": "wait2",
+      "name": "Wait (RPM guard) 2",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1560, 400],
+      "webhookId": "maestro-wait-2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [ { "name": "x-goog-api-key", "value": "={{ $env.GOOGLE_API_KEY }}" } ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"system_instruction\": {\"parts\": [{\"text\": \"You are the SYNTHESIZER. Deliver the final polished answer.\"}]},\n  \"contents\": [{\"role\": \"user\", \"parts\": [{\"text\": \"TASK: \" + $('Config (models + limits)').item.json.task + \"\\nVERIFIED ANSWER: \" + $json.choices[0].message.content}]}]\n}",
+        "options": { "timeout": 60000 }
+      },
+      "id": "synthesizer",
+      "name": "Synthesizer (Gemini)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 400],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"final_answer\": $json.candidates[0].content.parts[0].text,\n  \"mode\": \"conductor\",\n  \"note\": \"Decision-log assembled per-node; mirror of the Python schema.\"\n}"
+      },
+      "id": "respond",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2000, 400]
+    }
+  ],
+  "connections": {
+    "Webhook (task + mode)": { "main": [[{ "node": "Config (models + limits)", "type": "main", "index": 0 }]] },
+    "Config (models + limits)": { "main": [[{ "node": "Conductor (Gemini)", "type": "main", "index": 0 }]] },
+    "Conductor (Gemini)": { "main": [[{ "node": "Thinker (Groq 120b)", "type": "main", "index": 0 }]] },
+    "Thinker (Groq 120b)": { "main": [[{ "node": "Wait (RPM guard)", "type": "main", "index": 0 }]] },
+    "Wait (RPM guard)": { "main": [[{ "node": "Worker (Groq 20b)", "type": "main", "index": 0 }]] },
+    "Worker (Groq 20b)": { "main": [[{ "node": "Wait (RPM guard) 2", "type": "main", "index": 0 }]] },
+    "Wait (RPM guard) 2": { "main": [[{ "node": "Synthesizer (Gemini)", "type": "main", "index": 0 }]] },
+    "Synthesizer (Gemini)": { "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}
