@@ -32,9 +32,19 @@ def _bool_env(name: str, default: bool) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _strip_quotes(s: str) -> str:
+    s = s.strip()
+    if len(s) >= 2 and s[0] == s[-1] and s[0] in {'"', "'"}:
+        s = s[1:-1].strip()
+    return s
+
+
 def _list_env(name: str) -> list[str]:
+    # Strip surrounding quotes per item: pasting `MAESTRO_API_KEYS="key"` into a
+    # host's env UI (Vercel/Railway) stores the quotes literally, which would
+    # otherwise make a correct key never match.
     raw = os.getenv(name, "")
-    return [p.strip() for p in raw.split(",") if p.strip()]
+    return [_strip_quotes(p) for p in raw.split(",") if _strip_quotes(p)]
 
 
 class ModelSpec:

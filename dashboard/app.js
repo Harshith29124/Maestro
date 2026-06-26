@@ -143,7 +143,7 @@
         await runViaWS(task, mode, key);
       } catch (wsErr) {
         // Fall back to REST for any WS failure that isn't an explicit server error.
-        if (/rate limit|invalid api key|too long|empty/i.test(wsErr.message)) throw wsErr;
+        if (/rate limit|api key|too long|empty/i.test(wsErr.message)) throw wsErr;
         await runViaREST(task, mode, key);
       }
     } catch (err) {

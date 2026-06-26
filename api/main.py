@@ -200,6 +200,12 @@ async def ws_orchestrate(ws: WebSocket) -> None:
     # Auth over WS: validate the key from the first message.
     if sec.auth_enabled:
         key = (req.get("api_key") or "").strip()
+        if not key:
+            await ws.send_json(
+                {"type": "error", "detail": "API key required — paste your MAESTRO_API_KEYS value in the API key field."}
+            )
+            await ws.close(code=1008)
+            return
         if key not in sec.api_keys:
             await ws.send_json({"type": "error", "detail": "Invalid API key."})
             await ws.close(code=1008)
