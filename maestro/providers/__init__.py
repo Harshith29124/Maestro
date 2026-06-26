@@ -43,14 +43,8 @@ def build_registry(config: Config | None = None) -> ProviderRegistry:
         elif sec.allow_mock:
             # No key for this provider -> deterministic mock so demos/CI still run.
             providers[name] = MockProvider(name)
+        # else: leave this provider unregistered. ResilientCaller's fallback chain
+        # skips it (registry.for_model raises -> caller tries the next model), so a
+        # single missing key never crashes startup — it just narrows the model pool.
 
-    # Ensure every provider referenced in config resolves to *something*.
-    for name in config.providers:
-        providers.setdefault(name, MockProvider(name) if sec.allow_mock else _missing(name))
     return ProviderRegistry(providers)
-
-
-def _missing(name: str) -> Provider:
-    raise ProviderError(
-        f"No API key for provider '{name}' and MAESTRO_ALLOW_MOCK is disabled."
-    )
