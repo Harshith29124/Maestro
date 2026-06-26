@@ -5,6 +5,15 @@ from maestro.config import SecuritySettings
 from maestro.security import InputRejected, sanitize_task
 
 
+def test_api_keys_strip_surrounding_quotes(monkeypatch):
+    # Pasting MAESTRO_API_KEYS='"abc","def"' (quotes included) must still match.
+    monkeypatch.setenv("MAESTRO_API_KEYS", '"abc", "def"')
+    from maestro.config import SecuritySettings
+
+    sec = SecuritySettings()
+    assert sec.api_keys == ["abc", "def"]
+
+
 def test_sanitize_strips_control_chars():
     out = sanitize_task("hello\x07world", max_chars=100)
     assert out == "helloworld"
