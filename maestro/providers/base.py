@@ -54,3 +54,34 @@ def estimate_tokens(text: str) -> int:
     if not text:
         return 0
     return max(1, len(text) // 4)
+
+
+import re as _re
+
+# Reasoning models (gpt-oss, qwen3.x) leak chain-of-thought as <think>...</think>
+# (and a few sibling tags). Strip it so it never reaches the user or the next role.
+_THINK_RE = _re.compile(
+    r"<(think|thinking|reasoning|thought|scratchpad)>.*?</\1>",
+    _re.IGNORECASE | _re.DOTALL,
+)
+# An unclosed leading <think> (truncated output) — drop everything up to the close.
+_OPEN_THINK_RE = _re.compile(
+    r"^\s*<(think|thinking|reasoning|thought|scratchpad)>.*?(</\1>|$)",
+    _re.IGNORECASE | _re.DOTALL,
+)
+
+
+def clean_output(text: str) -> str:
+    """Remove leaked reasoning blocks and tidy whitespace for user-facing text."""
+    if not text:
+        return ""
+    cleaned = _THINK_RE.sub("", text)
+    cleaned = _OPEN_THINK_RE.sub("", cleaned)
+    # Drop stray scaffolding labels a model might echo from the prompt.
+    cleaned = _re.sub(
+        r"^\s*(STRATEGY( USED)?|VERIFIED ANSWER|TASK)\s*:\s*",
+        "",
+        cleaned,
+        flags=_re.IGNORECASE | _re.MULTILINE,
+    )
+    return cleaned.strip()

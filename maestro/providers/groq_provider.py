@@ -6,7 +6,7 @@ from typing import Any
 
 import httpx
 
-from .base import ChatResult, ProviderError, RateLimitedError
+from .base import ChatResult, ProviderError, RateLimitedError, clean_output
 
 
 class GroqProvider:
@@ -56,10 +56,12 @@ class GroqProvider:
 
         data = resp.json()
         choice = (data.get("choices") or [{}])[0]
+        # Take only the final content; ignore any separate `reasoning` field, and
+        # strip inline <think> blocks so chain-of-thought never leaks downstream.
         text = (choice.get("message") or {}).get("content", "") or ""
         usage = data.get("usage") or {}
         return ChatResult(
-            text=text.strip(),
+            text=clean_output(text),
             tokens_in=int(usage.get("prompt_tokens", 0)),
             tokens_out=int(usage.get("completion_tokens", 0)),
             model=model_id,
