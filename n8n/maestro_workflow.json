@@ -36,7 +36,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",
         "sendHeaders": true,
         "headerParameters": { "parameters": [ { "name": "x-goog-api-key", "value": "={{ $env.GOOGLE_API_KEY }}" } ] },
         "sendBody": true,
@@ -108,7 +108,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",
         "sendHeaders": true,
         "headerParameters": { "parameters": [ { "name": "x-goog-api-key", "value": "={{ $env.GOOGLE_API_KEY }}" } ] },
         "sendBody": true,

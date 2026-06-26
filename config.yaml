@@ -17,11 +17,17 @@ providers:
 # Per-model rate limits enforced locally BEFORE we ever hit the provider.
 # TPM (tokens/min) is the real binding constraint on Groq's free tier, not RPM.
 models:
-  gemini-3-flash:
+  gemini-3.5-flash:
     provider: gemini
-    api_id: "gemini-3-flash"
+    api_id: "gemini-3.5-flash"
     rpm: 12          # AI Studio free tier is RPM-tight
     tpm: 1000000     # ...but very generous on tokens
+    rpd: 1500
+  gemini-3.1-flash-lite:
+    provider: gemini
+    api_id: "gemini-3.1-flash-lite"
+    rpm: 15          # lite tier tends to allow a bit more RPM
+    tpm: 1000000
     rpd: 1500
   openai/gpt-oss-120b:
     provider: groq
@@ -54,13 +60,14 @@ models:
 # gpt-oss handles cross-family verification, Gemini handles long-context plan/synthesis.
 # Key invariant: the verifier must be a DIFFERENT family than the worker (self-preference bias).
 roles:
-  conductor:   ["gemini-3-flash", "openai/gpt-oss-120b"]
+  # Gemini 3.1 Flash Lite leads planning (fast/cheap); 3.5 Flash handles synthesis (stronger).
+  conductor:   ["gemini-3.1-flash-lite", "gemini-3.5-flash", "openai/gpt-oss-120b"]
   thinker:     ["qwen/qwen3.6-27b", "openai/gpt-oss-120b"]
   # Worker primary is llama; it auto-falls to qwen after llama's Aug 16 2026 shutdown.
   worker:      ["llama-3.3-70b-versatile", "qwen/qwen3.6-27b", "openai/gpt-oss-20b"]
   # gpt-oss verifier is a different family from the llama/qwen worker -> bias-safe.
-  verifier:    ["openai/gpt-oss-120b", "gemini-3-flash"]
-  synthesizer: ["gemini-3-flash", "qwen/qwen3.6-27b"]
+  verifier:    ["openai/gpt-oss-120b", "gemini-3.5-flash"]
+  synthesizer: ["gemini-3.5-flash", "gemini-3.1-flash-lite", "openai/gpt-oss-120b"]
   # Consensus (MoA-lite) proposers: explicitly different families for real diversity.
   consensus_pool: ["qwen/qwen3.6-27b", "llama-3.3-70b-versatile", "openai/gpt-oss-20b"]
 

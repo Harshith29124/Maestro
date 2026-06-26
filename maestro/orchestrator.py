@@ -76,12 +76,19 @@ class Orchestrator:
         await self._record(run, step, on_step)
 
         # Cheap path: trivial task the conductor says can be answered directly.
+        # Still verify it with a different model; only accept on a passing verdict,
+        # otherwise fall through to the full Thinker -> Worker -> Verifier pipeline.
         if plan.direct_answer_possible:
             worker_step = await run_worker(self._caller, task, strategy="Answer directly.")
             await self._record(run, worker_step, on_step)
-            run.final_answer = worker_step.output
-            run.verification_status = "unverified"
-            return
+            direct_verify = await run_verifier(self._caller, task, worker_step.output)
+            direct_verify.step = "verify_direct"
+            await self._record(run, direct_verify, on_step)
+            if direct_verify.verdict == "pass":
+                run.final_answer = worker_step.output
+                run.verification_status = "verified"
+                return
+            # Direct answer failed verification — escalate to the full pipeline.
 
         think_step = await run_thinker(self._caller, task)
         await self._record(run, think_step, on_step)
