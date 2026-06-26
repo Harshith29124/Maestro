@@ -3,29 +3,41 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Maestro — frontier-quality answers from free models, through transparent orchestration." />
   <title>Maestro — transparent orchestration of free models</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
   <header class="masthead">
     <div class="masthead-inner">
-      <h1 class="wordmark">MAESTRO</h1>
-      <p class="tagline">Frontier-quality answers from free models, through transparent orchestration.</p>
+      <div class="brand">
+        <h1 class="wordmark">MAESTRO</h1>
+        <span class="brand-badge">glass-box orchestration</span>
+      </div>
+      <nav class="topnav">
+        <a href="https://github.com/Harshith29124/Maestro" target="_blank" rel="noopener">GitHub</a>
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+      </nav>
     </div>
+    <p class="tagline">Frontier-quality answers from free models, through <strong>transparent orchestration</strong>.</p>
   </header>
 
   <main class="grid">
     <!-- LEFT: input -->
-    <section class="col col-input" aria-label="Task input">
+    <section class="col col-input card" aria-label="Task input">
       <h2 class="kicker">Task</h2>
       <textarea id="task" class="task-input" rows="6"
         placeholder="Paste a task. Maestro routes it across free LLMs and shows its work."></textarea>
 
       <fieldset class="modes">
         <legend class="kicker">Mode</legend>
-        <label><input type="radio" name="mode" value="conductor" checked /> Conductor <span class="muted">(default)</span></label>
-        <label><input type="radio" name="mode" value="consensus" /> Consensus <span class="muted">(MoA-lite)</span></label>
-        <label><input type="radio" name="mode" value="single" /> Single <span class="muted">(baseline)</span></label>
+        <label class="mode-opt"><input type="radio" name="mode" value="conductor" checked /> <span><strong>Conductor</strong> <span class="muted">default</span></span></label>
+        <label class="mode-opt"><input type="radio" name="mode" value="consensus" /> <span><strong>Consensus</strong> <span class="muted">MoA-lite</span></span></label>
+        <label class="mode-opt"><input type="radio" name="mode" value="single" /> <span><strong>Single</strong> <span class="muted">baseline</span></span></label>
       </fieldset>
 
       <div class="auth-row">
@@ -44,11 +56,13 @@
     <!-- CENTER: timeline -->
     <section class="col col-timeline" aria-label="Orchestration timeline">
       <h2 class="kicker">Orchestration timeline</h2>
-      <ol id="timeline" class="timeline"></ol>
+      <ol id="timeline" class="timeline">
+        <li class="timeline-empty muted">Run a task to watch the Conductor assign roles across free models — step by step.</li>
+      </ol>
     </section>
 
     <!-- RIGHT: final answer -->
-    <section class="col col-answer" aria-label="Final answer">
+    <section class="col col-answer card" aria-label="Final answer">
       <div class="answer-head">
         <h2 class="kicker">Final answer</h2>
         <span id="verdict" class="verdict" hidden></span>
@@ -57,14 +71,27 @@
 
       <div class="log-bar">
         <span id="totals" class="totals muted"></span>
-        <button id="export" class="btn btn-ghost" disabled>Export decision-log JSON</button>
+        <button id="export" class="btn btn-ghost btn-sm" disabled>Export JSON</button>
       </div>
     </section>
   </main>
 
   <footer class="footer">
-    <span>Glass-box rebuild of the Fugu / TRINITY concept.</span>
-    <span class="muted">Conductor is prompt/rule-based — not a trained coordinator. Disclosed honestly.</span>
+    <div class="footer-top">
+      <div>
+        <p class="footer-thesis"><strong>Glass-box rebuild of the Fugu / TRINITY concept.</strong></p>
+        <p class="muted">The Conductor is prompt/rule-based — not a trained coordinator. Disclosed honestly.</p>
+      </div>
+      <nav class="footer-links">
+        <a href="/terms.html">Terms &amp; Conditions</a>
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="https://github.com/Harshith29124/Maestro" target="_blank" rel="noopener">Source (MIT)</a>
+      </nav>
+    </div>
+    <div class="footer-bottom">
+      <span class="copyright">© 2026 Maestro. Built by Harshith. All rights reserved.</span>
+      <span class="muted">Open-source under the MIT License.</span>
+    </div>
   </footer>
 
   <script src="/app.js"></script>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — Maestro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="masthead">
+    <div class="masthead-inner">
+      <div class="brand">
+        <a href="/" style="text-decoration:none;color:inherit"><h1 class="wordmark">MAESTRO</h1></a>
+        <span class="brand-badge">glass-box orchestration</span>
+      </div>
+      <nav class="topnav">
+        <a href="/">Dashboard</a>
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="legal">
+    <a href="/" class="back">&larr; Back to Maestro</a>
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: 26 June 2026</p>
+
+    <p>This Privacy Policy explains how <strong>Maestro</strong> ("the Service") handles
+    information when you use it. Maestro is an open-source demonstration project designed to be
+    transparent — including about data.</p>
+
+    <h2>1. No accounts, minimal data</h2>
+    <p>Maestro does not require you to create an account and does not ask for your name, email,
+    or any personal profile. We do not use advertising or third-party tracking cookies.</p>
+
+    <h2>2. What is processed</h2>
+    <ul>
+      <li><strong>Your prompts:</strong> the task text you submit is sent to third-party model
+        providers (Groq and Google AI Studio) to generate a response. It is also briefly held in
+        memory to build the decision-log returned to you.</li>
+      <li><strong>Technical data:</strong> your IP address (or a derived identifier) is used
+        transiently to enforce rate limits and protect the Service from abuse. Rate-limit counters
+        expire automatically (within minutes to 24 hours).</li>
+    </ul>
+
+    <h2>3. What is NOT done</h2>
+    <ul>
+      <li>We do not sell your data.</li>
+      <li>We do not build advertising profiles.</li>
+      <li>Run records are stored only ephemerally on serverless infrastructure and are not
+        durably retained or linked to your identity.</li>
+    </ul>
+
+    <h2>4. Third-party model providers</h2>
+    <p>To produce answers, your prompt is transmitted to:</p>
+    <ul>
+      <li><strong>Groq</strong> — see Groq's privacy policy for how it handles API data.</li>
+      <li><strong>Google AI Studio (Gemini)</strong> — note that Google may use free-tier prompts
+        to improve its models.</li>
+    </ul>
+    <p><strong>Because of this, do not submit sensitive, confidential, personal, or regulated
+    information through Maestro.</strong></p>
+
+    <h2>5. Rate limiting &amp; security</h2>
+    <p>The Service uses an IP-derived identifier and a rate-limiting store (Upstash Redis) solely
+    to count requests within short time windows and prevent abuse of free-tier quotas. This data
+    is transient and not used to identify you.</p>
+
+    <h2>6. Cookies &amp; fonts</h2>
+    <p>Maestro does not set tracking cookies. Web fonts are loaded from Google Fonts; your browser
+    may contact Google's font servers to retrieve them.</p>
+
+    <h2>7. Children</h2>
+    <p>The Service is not directed at children under 13 and should not be used by them.</p>
+
+    <h2>8. Changes</h2>
+    <p>This Policy may be updated from time to time. Material changes will be reflected by the
+    "Last updated" date above.</p>
+
+    <h2>9. Contact</h2>
+    <p>For privacy questions, open an issue on the
+    <a href="https://github.com/Harshith29124/Maestro" target="_blank" rel="noopener">GitHub repository</a>.</p>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-bottom">
+      <span class="copyright">© 2026 Maestro. Built by Harshith. All rights reserved.</span>
+      <span class="muted">Open-source under the MIT License.</span>
+    </div>
+  </footer>
+</body>
+</html>
