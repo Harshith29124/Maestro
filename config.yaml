@@ -62,10 +62,11 @@ models:
 roles:
   # Gemini 3.1 Flash Lite leads planning (fast/cheap); 3.5 Flash handles synthesis (stronger).
   conductor:   ["gemini-3.1-flash-lite", "gemini-3.5-flash", "openai/gpt-oss-120b"]
-  thinker:     ["qwen/qwen3.6-27b", "openai/gpt-oss-120b"]
-  # Worker primary is llama; it auto-falls to qwen after llama's Aug 16 2026 shutdown.
-  worker:      ["llama-3.3-70b-versatile", "qwen/qwen3.6-27b", "openai/gpt-oss-20b"]
-  # gpt-oss verifier is a different family from the llama/qwen worker -> bias-safe.
+  thinker:     ["openai/gpt-oss-120b", "qwen/qwen3.6-27b"]
+  # qwen leads execution (current, strong). llama-3.3-70b was deprecated 2026-06-17 so it's
+  # demoted to last-resort fallback. Worker family stays != verifier family (bias-safe).
+  worker:      ["qwen/qwen3.6-27b", "openai/gpt-oss-20b", "llama-3.3-70b-versatile"]
+  # gpt-oss verifier is a different family from the qwen worker -> bias-safe.
   verifier:    ["openai/gpt-oss-120b", "gemini-3.5-flash"]
   synthesizer: ["gemini-3.5-flash", "gemini-3.1-flash-lite", "openai/gpt-oss-120b"]
   # Consensus (MoA-lite) proposers: explicitly different families for real diversity.
