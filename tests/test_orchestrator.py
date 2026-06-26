@@ -5,6 +5,25 @@ from maestro.orchestrator import Orchestrator
 from maestro.schemas import Mode
 
 
+def test_registry_builds_with_mock_disabled(monkeypatch):
+    """Regression: build_registry must not crash when MAESTRO_ALLOW_MOCK=false.
+
+    Previously dict.setdefault(..., _missing(name)) evaluated _missing eagerly and
+    raised on every provider, crashing startup in production (mock off).
+    """
+    monkeypatch.setenv("MAESTRO_ALLOW_MOCK", "false")
+    monkeypatch.setenv("GROQ_API_KEY", "test-key")
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    import maestro.config as cfg
+    from maestro.providers import build_registry
+
+    cfg.get_security.cache_clear()
+    reg = build_registry(cfg.get_config())
+    # groq has a key -> registered; gemini has none + mock off -> unregistered (fallback handles it).
+    assert reg.for_model("groq") is not None
+    cfg.get_security.cache_clear()
+
+
 @pytest.mark.asyncio
 async def test_conductor_run_completes():
     orch = Orchestrator()

@@ -45,25 +45,42 @@ _rate_limiter = None  # primary (Upstash if configured, else in-memory)
 _rate_backstop: SlidingWindowRateLimiter | None = None  # per-instance, used with Upstash
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
+def _ensure_initialized() -> None:
+    """Idempotently build the orchestrator + limiters.
+
+    Called from lifespan AND lazily from routes, because some serverless adapters
+    (notably Vercel) may not run ASGI lifespan startup — without this, the globals
+    would stay None and every request would 500.
+    """
     global _orchestrator, _rate_limiter, _rate_backstop
+    if _orchestrator is not None and _rate_limiter is not None:
+        return
     sec = get_security()
     for problem in validate_production_security(sec):
         logger.warning("SECURITY: %s", problem)
-    _orchestrator = Orchestrator(get_config())
-    _rate_limiter = build_rate_limiter(sec)
-    # When the primary is a shared Redis limiter (fail-open), keep a per-instance
-    # memory limiter as a backstop so a Redis outage can't fully open the API.
-    _rate_backstop = (
-        SlidingWindowRateLimiter(sec.rate_limit_per_minute, sec.rate_limit_per_day)
-        if _rate_limiter.backend != "memory"
-        else None
-    )
+    if _orchestrator is None:
+        _orchestrator = Orchestrator(get_config())
+    if _rate_limiter is None:
+        _rate_limiter = build_rate_limiter(sec)
+        # With a shared Redis limiter (fail-open), keep a per-instance memory
+        # backstop so a Redis outage can't fully open the API.
+        _rate_backstop = (
+            SlidingWindowRateLimiter(sec.rate_limit_per_minute, sec.rate_limit_per_day)
+            if _rate_limiter.backend != "memory"
+            else None
+        )
     logger.info(
         "Maestro %s ready (auth=%s, mock=%s, ratelimit=%s)",
         __version__, sec.auth_enabled, sec.allow_mock, _rate_limiter.backend,
     )
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        _ensure_initialized()
+    except Exception:  # noqa: BLE001 - don't let a startup error 500 the whole app
+        logger.exception("Startup initialization failed; will retry lazily per request.")
     yield
     if _orchestrator:
         await _orchestrator.aclose()
@@ -87,6 +104,7 @@ app.add_middleware(
 
 async def _enforce_rate_limit(client_id: str) -> tuple[bool, int, str]:
     """Check primary (+ memory backstop). Returns (allowed, retry_after, scope)."""
+    _ensure_initialized()
     assert _rate_limiter is not None
     allowed, retry_after, scope = await _rate_limiter.check(client_id)
     if allowed and _rate_backstop is not None:
@@ -107,6 +125,10 @@ async def _check_rate_limit(client_id: str) -> None:
 # ------------------------------------------------------------------ routes
 @app.get("/health")
 async def health() -> dict:
+    try:
+        _ensure_initialized()
+    except Exception:  # noqa: BLE001 - health must answer even if init is degraded
+        logger.exception("health: initialization failed")
     sec = get_security()
     cfg = get_config()
     return {
@@ -122,6 +144,7 @@ async def health() -> dict:
 
 @app.get("/limits")
 async def limits(client_id: str = Depends(require_api_key)) -> dict:
+    _ensure_initialized()
     assert _orchestrator is not None
     return {"provider_models": _orchestrator.limiter.snapshot()}
 
