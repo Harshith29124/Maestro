@@ -6,7 +6,7 @@ from typing import Any
 
 import httpx
 
-from .base import ChatResult, ProviderError, RateLimitedError
+from .base import ChatResult, ProviderError, RateLimitedError, clean_output
 
 
 class GeminiProvider:
@@ -59,7 +59,7 @@ class GeminiProvider:
         text = _extract_text(data)
         usage = data.get("usageMetadata") or {}
         return ChatResult(
-            text=text.strip(),
+            text=clean_output(text),
             tokens_in=int(usage.get("promptTokenCount", 0)),
             tokens_out=int(usage.get("candidatesTokenCount", 0)),
             model=model_id,

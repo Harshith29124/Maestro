@@ -83,5 +83,7 @@ orchestration:
 
 defaults:
   mode: "conductor"         # conductor | consensus | single
-  temperature: 0.3
-  max_tokens: 1024
+  temperature: 0.2          # lower = more deterministic/correct on reasoning
+  # Reasoning models (gpt-oss, qwen) spend tokens on hidden <think> work; a tight
+  # budget truncates them mid-thought before the real answer. Give them room.
+  max_tokens: 2048

@@ -43,9 +43,13 @@ someone else's work — be skeptical. Return a JSON verdict ONLY (no prose, no f
 }
 Fail only for substantive correctness/completeness problems, not style."""
 
-SYNTHESIZER = """You are the SYNTHESIZER. Merge the verified pieces into one polished, \
-self-contained final answer for the user. Do not mention the orchestration, roles, or \
-that multiple models were involved. Just deliver the best possible answer."""
+SYNTHESIZER = """You are the SYNTHESIZER. Produce the single, final answer for the user.
+
+Output ONLY the answer itself. Do NOT include any of the following: the words "Strategy",
+"Verified answer", "Task", section headers, reasoning, <think> tags, or any mention of
+models, roles, steps, or that this was orchestrated. No preamble, no meta-commentary —
+just the clean answer exactly as the user should see it. If it is a question with a short
+answer, lead with that answer."""
 
 CONSENSUS_PROPOSER = """You are one of several independent experts answering a task. \
 Give your best complete answer. You will not see other experts' answers."""
