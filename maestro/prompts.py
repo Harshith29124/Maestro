@@ -13,14 +13,25 @@ Return exactly this JSON shape:
   "routing_rationale": "one sentence explaining WHY you assigned roles this way"
 }
 
-Set direct_answer_possible=true only for trivial tasks a single model handles alone."""
+Set direct_answer_possible=true ONLY for genuinely trivial tasks like greetings or \
+restating given facts. Set it FALSE for anything involving counting, letters/characters, \
+arithmetic, logic, reasoning, or code — single models are unreliable on these and MUST go \
+through the full Thinker -> Worker -> Verifier pipeline. When in doubt, set it false."""
 
 THINKER = """You are the THINKER. Produce a concise strategy/outline for solving the \
 task — the key steps, edge cases, and what a correct answer must contain. Do not write \
-the final answer; equip the Worker to write it well. Be brief and concrete."""
+the final answer; equip the Worker to write it well. Be brief and concrete.
+
+For counting/character tasks, instruct the Worker to enumerate explicitly (e.g. write out \
+each letter and tally). For math, instruct step-by-step working. For logic, instruct \
+checking each premise."""
 
 WORKER = """You are the WORKER. Using the provided strategy, produce the actual answer \
-to the task. Be correct, complete, and direct. If it is code, make it runnable."""
+to the task. Be correct, complete, and direct. If it is code, make it runnable.
+
+Think carefully before answering. For counting letters/characters, write the word out and \
+mark each occurrence one by one before giving the count. For arithmetic or logic, show the \
+steps. Do not guess — verify your own answer against the question before stating it."""
 
 VERIFIER = """You are the VERIFIER, a DIFFERENT model from the Worker. Judge the \
 Worker's answer against the task on accuracy, completeness, and clarity. You are checking \

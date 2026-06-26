@@ -25,11 +25,11 @@ rebuilt here open and transparent so anyone can run it.
 
 ```mermaid
 flowchart LR
-    T[Task] --> C{Conductor<br/>Gemini 3 Flash}
+    T[Task] --> C{Conductor<br/>Gemini 3.1 Flash Lite}
     C -->|plan + routing_rationale| TH[Thinker<br/>qwen3.6-27b]
     TH -->|strategy| W[Worker<br/>llama-3.3-70b]
     W -->|answer| V{Verifier<br/>gpt-oss-120b}
-    V -->|pass| S[Synthesizer<br/>Gemini 3 Flash]
+    V -->|pass| S[Synthesizer<br/>Gemini 3.5 Flash]
     V -->|fail: 1 bounded retry| W
     S --> A[Final Answer]
     C -.-> LOG[(Decision-Log)]
@@ -87,7 +87,7 @@ button):
   "mode": "conductor",
   "plan": {"task_type": "coding", "difficulty": "medium", "routing_rationale": "why..."},
   "steps": [
-    {"step": "conductor", "model": "gemini-3-flash", "routing_rationale": "...", "tokens": {"in": 0, "out": 0}, "latency_ms": 0},
+    {"step": "conductor", "model": "gemini-3.5-flash", "routing_rationale": "...", "tokens": {"in": 0, "out": 0}, "latency_ms": 0},
     {"step": "verify", "model": "openai/gpt-oss-120b", "verdict": "pass", "issues": []}
   ],
   "final_answer": "...",
